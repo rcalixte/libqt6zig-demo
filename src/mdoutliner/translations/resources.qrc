@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/translations">
+        <file>mdoutliner_en.qm</file>
+        <file>mdoutliner_es.qm</file>
+        <file>mdoutliner_fr.qm</file>
+    </qresource>
+</RCC>

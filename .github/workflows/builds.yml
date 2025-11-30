@@ -1,0 +1,79 @@
+---
+name: builds
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  builds:
+    strategy:
+      fail-fast: false
+      matrix:
+        qt: ["6.8", "6.10"]
+        os: [&linux-arm ubuntu-24.04-arm, &linux-x86_64 ubuntu-latest, &macos macos-latest, &windows windows-latest]
+        include:
+          - name: Linux arm64
+            arch: "linux_gcc_arm64"
+            host: "linux_arm64"
+            os: *linux-arm
+            python: "false"
+          - name: Linux x86_64
+            arch: "linux_gcc_64"
+            host: "linux"
+            os: *linux-x86_64
+            python: "false"
+          - name: macOS arm64
+            arch: "clang_64"
+            host: "mac"
+            os: *macos
+            python: "true"
+          - name: Windows x86_64
+            arch: "win64_llvm_mingw"
+            host: "windows"
+            os: *windows
+            python: "false"
+    runs-on: ${{ matrix.os }}
+    name: "${{ matrix.name }} Qt ${{ matrix.qt }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          arch: "${{ matrix.arch }}"
+          archives: "qtbase"
+          cache-key-prefix: "${{ matrix.qt }}-${{ matrix.arch }}"
+          cache: "true"
+          dir: "${{ github.workspace }}/${{ matrix.qt }}-${{ matrix.arch }}"
+          host: "${{ matrix.host }}"
+          setup-python: "${{ matrix.python }}"
+          target: "desktop"
+          version: "${{ matrix.qt }}.*"
+
+      - name: Linux build
+        if: runner.os == 'Linux'
+        run: zig build --release=fast -Dextra-paths='${{ env.QT_ROOT_DIR }}'
+
+      - name: macOS build
+        if: runner.os == 'macOS'
+        run: |
+          for fw in ${{ env.QT_ROOT_DIR }}/lib/Qt*.framework/Headers; do framework_path="${fw#*/lib/}"; framework_name="${framework_path%%.framework*}"; /bin/ln -sv "${fw}" '${{ env.QT_ROOT_DIR }}'"/include/${framework_name}"; done;
+
+          zig build --release=fast -Dextra-paths='${{ env.QT_ROOT_DIR }}'
+
+      - name: Windows build
+        if: runner.os == 'Windows'
+        run: zig build --release=fast -Dextra-paths='${{ env.QT_ROOT_DIR }}' -DQTDIR='${{ env.QT_ROOT_DIR }}'

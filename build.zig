@@ -101,6 +101,10 @@ pub fn build(b: *std.Build) !void {
         exe.root_module.linkLibrary(qt6zig.artifact(lib));
     }
 
+    // Create a check step
+    const check_step = b.step("check", "Check the build without generating an executable");
+    check_step.dependOn(&exe.step);
+
     // Install the executable
     b.installArtifact(exe);
 
@@ -113,7 +117,11 @@ pub fn build(b: *std.Build) !void {
     build_run_step.dependOn(&run_cmd.step);
 
     if (is_windows) {
-        const win_libs = base_libs ++ .{ "libc++", "libunwind", "opengl32sw" };
+        const win_libs = base_libs ++ .{
+            "libc++",
+            "libunwind",
+            "opengl32sw",
+        };
 
         for (win_libs) |lib| {
             const bin_path = b.fmt("bin/{s}.dll", .{lib});

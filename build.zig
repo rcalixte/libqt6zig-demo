@@ -60,17 +60,17 @@ pub fn build(b: *std.Build) !void {
             std.fs.cwd().access(extra_path, .{}) catch {
                 continue;
             };
-            exe.root_module.addLibraryPath(std.Build.LazyPath{ .cwd_relative = extra_path });
+            exe.root_module.addLibraryPath(.{ .cwd_relative = extra_path });
             if (is_macos)
-                exe.root_module.addFrameworkPath(std.Build.LazyPath{ .cwd_relative = extra_path });
+                exe.root_module.addFrameworkPath(.{ .cwd_relative = extra_path });
         }
     }
 
     if (is_bsd_host)
-        exe.root_module.addLibraryPath(std.Build.LazyPath{ .cwd_relative = "/usr/local/lib/qt6" });
+        exe.root_module.addLibraryPath(.{ .cwd_relative = "/usr/local/lib/qt6" });
     if (is_macos) {
-        exe.root_module.addFrameworkPath(std.Build.LazyPath{ .cwd_relative = "/opt/homebrew/Frameworks" });
-        exe.root_module.addLibraryPath(std.Build.LazyPath{ .cwd_relative = "/opt/homebrew/lib" });
+        exe.root_module.addFrameworkPath(.{ .cwd_relative = "/opt/homebrew/Frameworks" });
+        exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
     }
     if (is_windows) {
         const win_bin_dir = win_root ++ "/bin";
@@ -84,7 +84,7 @@ pub fn build(b: *std.Build) !void {
             }
         };
         if (ok_bin_dir) {
-            exe.root_module.addLibraryPath(std.Build.LazyPath{ .cwd_relative = win_bin_dir });
+            exe.root_module.addLibraryPath(.{ .cwd_relative = win_bin_dir });
         }
     }
 
@@ -94,6 +94,20 @@ pub fn build(b: *std.Build) !void {
         } else {
             exe.root_module.linkSystemLibrary(lib, .{});
         }
+    }
+
+    if (is_linux_host) {
+        exe.root_module.link_libcpp = false;
+
+        const result = try std.process.Child.run(.{
+            .allocator = b.allocator,
+            .argv = &.{ "gcc", "--print-file-name=libstdc++.so.6" },
+        });
+        exe.root_module.addObjectFile(.{
+            .cwd_relative = std.mem.trim(u8, result.stdout, &std.ascii.whitespace),
+        });
+
+        exe.root_module.linkSystemLibrary("unwind", .{});
     }
 
     // Link libqt6zig static libraries
@@ -129,7 +143,7 @@ pub fn build(b: *std.Build) !void {
             std.fs.cwd().access(dll_path, .{}) catch {
                 continue;
             };
-            const install_win_dll = b.addInstallFile(std.Build.LazyPath{ .cwd_relative = dll_path }, bin_path);
+            const install_win_dll = b.addInstallFile(.{ .cwd_relative = dll_path }, bin_path);
             run_cmd.step.dependOn(&install_win_dll.step);
         }
 
@@ -139,7 +153,7 @@ pub fn build(b: *std.Build) !void {
             return error.PluginsPathNotFound;
         };
         const install_plugins = b.addInstallDirectory(.{
-            .source_dir = std.Build.LazyPath{ .cwd_relative = plugins_path },
+            .source_dir = .{ .cwd_relative = plugins_path },
             .install_dir = .prefix,
             .install_subdir = "bin/plugins",
         });
@@ -149,6 +163,11 @@ pub fn build(b: *std.Build) !void {
 
 const is_bsd_host = switch (host_os) {
     .dragonfly, .freebsd, .netbsd, .openbsd => true,
+    else => false,
+};
+
+const is_linux_host = switch (host_os) {
+    .linux => true,
     else => false,
 };
 

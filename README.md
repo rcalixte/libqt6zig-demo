@@ -60,7 +60,7 @@ sudo pkg install qt6-base
 #### Debian-based distributions
 
 ```bash
-sudo apt install qt6-base-dev
+sudo apt install gcc libstdc++-14-dev-$(dpkg --print-architecture)-cross qt6-base-dev
 ```
 
 > [!NOTE]
@@ -69,7 +69,7 @@ sudo apt install qt6-base-dev
 #### Fedora-based distributions
 
 ```bash
-sudo dnf install qt6-qtbase-devel
+sudo dnf install gcc libstdc++-devel qt6-qtbase-devel
 ```
 
 > [!NOTE]
@@ -78,7 +78,7 @@ sudo dnf install qt6-qtbase-devel
 #### Arch-based distributions
 
 ```bash
-sudo pacman -S qt6-base
+sudo pacman -S gcc qt6-base
 ```
 
 > [!NOTE]

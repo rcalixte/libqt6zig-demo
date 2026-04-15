@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 const qt6 = @import("libqt6zig");
 const resources = @import("resources.zig");
@@ -23,13 +24,15 @@ const qkeysequence = qt6.qkeysequence;
 const qaction = qt6.qaction;
 const qmenubar = qt6.qmenubar;
 const qmenu = qt6.qmenu;
+const qlabel = qt6.qlabel;
+const qstatusbar = qt6.qstatusbar;
 const qlocale = qt6.qlocale;
 const qtranslator = qt6.qtranslator;
 
-var gpa: std.heap.DebugAllocator(.{}) = .init;
-const allocator = std.heap.smp_allocator;
+var allocator: std.mem.Allocator = undefined;
+var io: std.Io = undefined;
 
-const lineNumberRole = qnamespace_enums.ItemDataRole.UserRole + 1;
+const line_number_role = qnamespace_enums.ItemDataRole.UserRole + 1;
 
 const AppTabMap = std.AutoHashMapUnmanaged(?*anyopaque, *AppTab);
 const AppWindowMap = std.AutoHashMapUnmanaged(?*anyopaque, *AppWindow);
@@ -38,18 +41,16 @@ var app_tab_map: AppTabMap = undefined;
 var app_window_tab_map: AppWindowMap = undefined;
 var main_window: *AppWindow = undefined;
 
-var fileMenu: C.QMenu = undefined;
+var file_menu: C.QMenu = undefined;
 var newtab: C.QAction = undefined;
 var open: C.QAction = undefined;
 var exit: C.QAction = undefined;
-
-var optionsMenu: C.QMenu = undefined;
-var languageMenu: C.QMenu = undefined;
+var options_menu: C.QMenu = undefined;
+var language_menu: C.QMenu = undefined;
 var english: C.QAction = undefined;
 var french: C.QAction = undefined;
 var spanish: C.QAction = undefined;
-
-var helpMenu: C.QMenu = undefined;
+var help_menu: C.QMenu = undefined;
 var about: C.QAction = undefined;
 
 fn onTriggered(self: ?*anyopaque) callconv(.c) void {
@@ -62,151 +63,148 @@ fn onTriggered(self: ?*anyopaque) callconv(.c) void {
     const translator = qtranslator.New();
     defer qtranslator.Delete(translator);
 
-    if (qtranslator.Load42(translator, locale, "mdoutliner", "_", ":/translations")) {
-        _ = qapplication.InstallTranslator(translator);
-    } else {
+    if (qtranslator.Load42(translator, locale, "mdoutliner", "_", ":/translations"))
+        _ = qapplication.InstallTranslator(translator)
+    else
         return;
-    }
 
-    const fileText = qapplication.Translate("Main", "&File", allocator);
-    defer allocator.free(fileText);
-    qmenu.SetTitle(fileMenu, fileText);
+    const file_text = qapplication.Translate("Main", "&File", allocator);
+    defer allocator.free(file_text);
+    qmenu.SetTitle(file_menu, file_text);
 
-    const newText = qapplication.Translate("Main", "&New Tab", allocator);
-    defer allocator.free(newText);
-    qaction.SetText(newtab, newText);
+    const new_text = qapplication.Translate("Main", "&New Tab", allocator);
+    defer allocator.free(new_text);
+    qaction.SetText(newtab, new_text);
 
-    const newBind = qapplication.Translate3("Main", "Ctrl+N", "New tab", allocator);
-    defer allocator.free(newBind);
+    const new_bind = qapplication.Translate3("Main", "Ctrl+N", "New tab", allocator);
+    defer allocator.free(new_bind);
 
-    const newKey = qkeysequence.New2(newBind);
+    const newKey = qkeysequence.New2(new_bind);
     defer qkeysequence.Delete(newKey);
 
     qaction.SetShortcut(newtab, newKey);
 
-    const openText = qapplication.Translate("Main", "&Open...", allocator);
-    defer allocator.free(openText);
-    qaction.SetText(open, openText);
+    const open_text = qapplication.Translate("Main", "&Open...", allocator);
+    defer allocator.free(open_text);
+    qaction.SetText(open, open_text);
 
-    const openBind = qapplication.Translate3("Main", "Ctrl+O", "Open a file", allocator);
-    defer allocator.free(openBind);
+    const open_bind = qapplication.Translate3("Main", "Ctrl+O", "Open a file", allocator);
+    defer allocator.free(open_bind);
 
-    const openKey = qkeysequence.New2(openBind);
-    defer qkeysequence.Delete(openKey);
+    const open_key = qkeysequence.New2(open_bind);
+    defer qkeysequence.Delete(open_key);
 
-    qaction.SetShortcut(open, openKey);
+    qaction.SetShortcut(open, open_key);
 
-    const exitText = qapplication.Translate("Main", "&Exit", allocator);
-    defer allocator.free(exitText);
-    qaction.SetText(exit, exitText);
+    const exit_text = qapplication.Translate("Main", "&Exit", allocator);
+    defer allocator.free(exit_text);
+    qaction.SetText(exit, exit_text);
 
-    const exitBind = qapplication.Translate3("Main", "Ctrl+Q", "Quit", allocator);
-    defer allocator.free(exitBind);
+    const exit_bind = qapplication.Translate3("Main", "Ctrl+Q", "Quit", allocator);
+    defer allocator.free(exit_bind);
 
-    const exitKey = qkeysequence.New2(exitBind);
-    defer qkeysequence.Delete(exitKey);
+    const exit_key = qkeysequence.New2(exit_bind);
+    defer qkeysequence.Delete(exit_key);
 
-    qaction.SetShortcut(exit, exitKey);
+    qaction.SetShortcut(exit, exit_key);
 
-    const optionsText = qapplication.Translate("Main", "&Options", allocator);
-    defer allocator.free(optionsText);
-    qmenu.SetTitle(optionsMenu, optionsText);
+    const options_text = qapplication.Translate("Main", "&Options", allocator);
+    defer allocator.free(options_text);
+    qmenu.SetTitle(options_menu, options_text);
 
-    const languageText = qapplication.Translate("Main", "&Language", allocator);
-    defer allocator.free(languageText);
-    qmenu.SetTitle(languageMenu, languageText);
+    const language_text = qapplication.Translate("Main", "&Language", allocator);
+    defer allocator.free(language_text);
+    qmenu.SetTitle(language_menu, language_text);
 
-    const englishText = qapplication.Translate("Main", "&English", allocator);
-    defer allocator.free(englishText);
-    qaction.SetText(english, englishText);
+    const english_text = qapplication.Translate("Main", "&English", allocator);
+    defer allocator.free(english_text);
+    qaction.SetText(english, english_text);
 
-    const frenchText = qapplication.Translate("Main", "&French", allocator);
-    defer allocator.free(frenchText);
-    qaction.SetText(french, frenchText);
+    const french_text = qapplication.Translate("Main", "&French", allocator);
+    defer allocator.free(french_text);
+    qaction.SetText(french, french_text);
 
-    const spanishText = qapplication.Translate("Main", "&Spanish", allocator);
-    defer allocator.free(spanishText);
-    qaction.SetText(spanish, spanishText);
+    const spanish_text = qapplication.Translate("Main", "&Spanish", allocator);
+    defer allocator.free(spanish_text);
+    qaction.SetText(spanish, spanish_text);
 
-    const helpText = qapplication.Translate("Main", "&Help", allocator);
-    defer allocator.free(helpText);
-    qmenu.SetTitle(helpMenu, helpText);
+    const help_text = qapplication.Translate("Main", "&Help", allocator);
+    defer allocator.free(help_text);
+    qmenu.SetTitle(help_menu, help_text);
 
-    const aboutText = qapplication.Translate("Main", "&About Qt", allocator);
-    defer allocator.free(aboutText);
-    qaction.SetText(about, aboutText);
+    const about_text = qapplication.Translate("Main", "&About Qt", allocator);
+    defer allocator.free(about_text);
+    qaction.SetText(about, about_text);
 }
 
 pub const AppTab = struct {
     tab: C.QWidget,
     outline: C.QListWidget,
-    textArea: C.QTextEdit,
-
-    pub fn handleJumpToBookmark(self: ?*anyopaque, _: ?*anyopaque, _: ?*anyopaque) callconv(.c) void {
-        if (app_tab_map.get(self)) |apptab| {
-            const itm = qlistwidget.CurrentItem(apptab.outline);
-            if (itm == null) {
-                return;
-            }
-
-            const lineNumberQVariant = qlistwidgetitem.Data(itm, lineNumberRole);
-            const lineNumber = qvariant.ToInt(lineNumberQVariant);
-            defer qvariant.Delete(lineNumberQVariant);
-            const textAreaDocument = qtextedit.Document(apptab.textArea);
-            if (textAreaDocument == null) {
-                return;
-            }
-            const targetBlock = qtextdocument.FindBlockByLineNumber(textAreaDocument, lineNumber);
-            if (targetBlock == null) {
-                return;
-            }
-            const cursor = qtextcursor.New4(targetBlock);
-            if (cursor == null) {
-                return;
-            }
-            defer qtextcursor.Delete(cursor);
-
-            qtextcursor.SetPosition(cursor, qtextblock.Position(targetBlock));
-            qtextedit.SetTextCursor(apptab.textArea, cursor);
-            qtextedit.SetFocus(apptab.textArea);
-        }
-    }
+    text_area: C.QTextEdit,
 
     pub fn updateOutlineForContent(self: *AppTab, content: []const u8) void {
         qlistwidget.Clear(self.outline);
 
         var lines = std.mem.splitScalar(u8, content, '\n');
-        var inCodeBlock = false;
-        var lineNumber: i32 = 0;
-        var prevLine: []const u8 = undefined;
+        var in_code_block = false;
+        var line_number: i32 = 0;
+        var prev_line: []const u8 = undefined;
         var buf: [32]u8 = undefined;
 
         while (lines.next()) |line| {
-            if (!inCodeBlock) {
+            if (!in_code_block)
                 if (std.mem.startsWith(u8, line, "#")) {
                     const bookmark = qlistwidgetitem.New7(line, self.outline);
-                    const tooltip = std.fmt.bufPrint(&buf, "Line {d}", .{lineNumber + 1}) catch continue;
+                    const tooltip = std.fmt.bufPrint(&buf, "Line {d}", .{line_number + 1}) catch continue;
 
                     qlistwidgetitem.SetToolTip(bookmark, tooltip);
-                    const lineNum = qvariant.New4(lineNumber);
-                    defer qvariant.Delete(lineNum);
-                    qlistwidgetitem.SetData(bookmark, lineNumberRole, lineNum);
-                } else if ((std.mem.startsWith(u8, line, "---") or std.mem.startsWith(u8, line, "===")) and !std.mem.eql(u8, prevLine, "")) {
-                    const bookmark = qlistwidgetitem.New7(prevLine, self.outline);
-                    const tooltip = std.fmt.bufPrint(&buf, "Line {d}", .{lineNumber}) catch continue;
+                    const line_num = qvariant.New4(line_number);
+                    defer qvariant.Delete(line_num);
+                    qlistwidgetitem.SetData(bookmark, line_number_role, line_num);
+                } else if ((std.mem.startsWith(u8, line, "---") or std.mem.startsWith(u8, line, "===")) and !std.mem.eql(u8, prev_line, "")) {
+                    const bookmark = qlistwidgetitem.New7(prev_line, self.outline);
+                    const tooltip = std.fmt.bufPrint(&buf, "Line {d}", .{line_number}) catch continue;
 
                     qlistwidgetitem.SetToolTip(bookmark, tooltip);
-                    const lineNum = qvariant.New4(lineNumber - 1);
-                    defer qvariant.Delete(lineNum);
-                    qlistwidgetitem.SetData(bookmark, lineNumberRole, lineNum);
-                }
-            }
+                    const line_num = qvariant.New4(line_number - 1);
+                    defer qvariant.Delete(line_num);
+                    qlistwidgetitem.SetData(bookmark, line_number_role, line_num);
+                };
 
             if (std.mem.startsWith(u8, line, "```"))
-                inCodeBlock = !inCodeBlock;
+                in_code_block = !in_code_block;
 
-            prevLine = line;
-            lineNumber += 1;
+            prev_line = line;
+            line_number += 1;
+        }
+    }
+
+    pub fn deinit(self: *AppTab) void {
+        qwidget.Delete(self.tab);
+        self.tab = null;
+    }
+
+    pub fn handleJumpToBookmark(self: ?*anyopaque, _: ?*anyopaque, _: ?*anyopaque) callconv(.c) void {
+        if (app_tab_map.get(self)) |apptab| {
+            const itm = qlistwidget.CurrentItem(apptab.outline);
+            if (itm == null) return;
+
+            const line_number_qvariant = qlistwidgetitem.Data(itm, line_number_role);
+            const line_number = qvariant.ToInt(line_number_qvariant);
+            defer qvariant.Delete(line_number_qvariant);
+
+            const text_area_document = qtextedit.Document(apptab.text_area);
+            if (text_area_document == null) return;
+
+            const target_block = qtextdocument.FindBlockByLineNumber(text_area_document, line_number);
+            if (target_block == null) return;
+
+            const cursor = qtextcursor.New4(target_block);
+            defer qtextcursor.Delete(cursor);
+
+            qtextcursor.SetPosition(cursor, qtextblock.Position(target_block));
+            qtextedit.SetTextCursor(apptab.text_area, cursor);
+            qtextedit.SetFocus(apptab.text_area);
         }
     }
 
@@ -220,37 +218,27 @@ pub const AppTab = struct {
             updateOutlineForContent(apptab, content);
         }
     }
-
-    pub fn deinit(self: *AppTab) void {
-        if (self.tab) |tab| {
-            qwidget.Delete(tab);
-            self.tab = null;
-        }
-    }
 };
 
 pub fn NewAppTab() !*AppTab {
     var ret = try allocator.create(AppTab);
 
-    const tab = qwidget.New2();
-    ret.tab = tab;
+    ret.tab = qwidget.New2();
 
     const layout = qhboxlayout.New(ret.tab);
-
     const panes = qsplitter.New2();
     qhboxlayout.AddWidget(layout, panes);
 
     ret.outline = qlistwidget.New(ret.tab);
-
     qsplitter.AddWidget(panes, ret.outline);
     qlistwidget.OnCurrentItemChanged(ret.outline, AppTab.handleJumpToBookmark);
 
-    ret.textArea = qtextedit.New(ret.tab);
-    try app_tab_map.put(allocator, ret.textArea, ret);
+    ret.text_area = qtextedit.New(ret.tab);
+    try app_tab_map.put(allocator, ret.text_area, ret);
     try app_tab_map.put(allocator, ret.outline, ret);
 
-    qtextedit.OnTextChanged(ret.textArea, AppTab.handleTextChanged);
-    qsplitter.AddWidget(panes, ret.textArea);
+    qtextedit.OnTextChanged(ret.text_area, AppTab.handleTextChanged);
+    qsplitter.AddWidget(panes, ret.text_area);
 
     var sizes = [_]i32{ 250, 550 };
     qsplitter.SetSizes(panes, &sizes);
@@ -262,8 +250,21 @@ pub const AppWindow = struct {
     w: C.QMainWindow,
     tabs: C.QTabWidget,
 
-    pub fn handleTabClose(self: ?*anyopaque, index: i32) callconv(.c) void {
-        if (app_window_tab_map.get(self)) |appwindow| {
+    pub fn createTabWithContents(self: *AppWindow, tab_title: []const u8, tab_content: []const u8) void {
+        const tab = NewAppTab() catch @panic("Failed to create tab");
+        // the new tab is cleaned up during handleTabClose
+
+        qtextedit.SetText(tab.text_area, tab_content);
+
+        const icon = qicon.FromTheme("text-markdown");
+        defer qicon.Delete(icon);
+
+        const tab_idx = qtabwidget.AddTab2(self.tabs, tab.tab, icon, tab_title);
+        qtabwidget.SetCurrentIndex(self.tabs, tab_idx);
+    }
+
+    pub fn handleTabClose(tab: ?*anyopaque, index: i32) callconv(.c) void {
+        if (app_window_tab_map.get(tab)) |appwindow| {
             const widget = qtabwidget.Widget(appwindow.tabs, index);
             if (widget != null) {
                 var tab_to_free: ?*AppTab = null;
@@ -273,12 +274,8 @@ pub const AppWindow = struct {
                     const apptab = entry.value_ptr.*;
                     if (apptab.tab == widget) {
                         tab_to_free = apptab;
-                        if (apptab.textArea) |textArea| {
-                            _ = app_tab_map.remove(textArea);
-                        }
-                        if (apptab.outline) |outline| {
-                            _ = app_tab_map.remove(outline);
-                        }
+                        _ = app_tab_map.fetchRemove(apptab.text_area);
+                        _ = app_tab_map.fetchRemove(apptab.outline);
                         break;
                     }
                 }
@@ -295,22 +292,9 @@ pub const AppWindow = struct {
     pub fn handleCloseCurrentTab(_: ?*anyopaque) callconv(.c) void {
         if (main_window.tabs != null) {
             const current_index = qtabwidget.CurrentIndex(main_window.tabs);
-            if (current_index >= 0) {
-                AppWindow.handleTabClose(main_window.tabs, current_index);
-            }
+            if (current_index >= 0)
+                handleTabClose(main_window.tabs, current_index);
         }
-    }
-
-    pub fn createTabWithContents(self: *AppWindow, tabTitle: []const u8, tabContent: []const u8) void {
-        const tab = NewAppTab() catch @panic("Failed to create tab");
-        // the new tab is cleaned up during handleTabClose
-
-        qtextedit.SetText(tab.textArea, tabContent);
-
-        const icon = qicon.FromTheme("text-markdown");
-        defer qicon.Delete(icon);
-        const tabIdx = qtabwidget.AddTab2(self.tabs, tab.tab, icon, tabTitle);
-        qtabwidget.SetCurrentIndex(self.tabs, tabIdx);
     }
 
     pub fn handleNewTab(_: ?*anyopaque) callconv(.c) void {
@@ -318,23 +302,23 @@ pub const AppWindow = struct {
     }
 
     pub fn handleFileOpen(_: ?*anyopaque) callconv(.c) void {
-        const captionParam = "Open markdown file...";
-        const directoryParam = "";
-        const filterParam = "Markdown files (*.md *.txt);;All Files (*)";
-        const fname = qfiledialog.GetOpenFileName4(main_window.w, captionParam, directoryParam, filterParam, allocator);
+        const fname = qfiledialog.GetOpenFileName4(
+            main_window.w,
+            "Open markdown file...",
+            "",
+            "Markdown files (*.md *.txt);;All Files (*)",
+            allocator,
+        );
         defer allocator.free(fname);
 
-        if (fname.len == 0) {
-            return;
-        }
+        if (fname.len == 0) return;
 
-        const file = std.fs.cwd().openFile(fname, .{}) catch @panic("Failed to open file");
-        defer file.close();
+        const file = std.Io.Dir.cwd().openFile(io, fname, .{}) catch @panic("Failed to open file");
+        defer file.close(io);
 
         var buffer: [4096]u8 = undefined;
-        var file_reader = file.reader(&buffer);
-        const fileSize = file.getEndPos() catch @panic("Failed to get file size");
-        const contents = file_reader.interface.readAlloc(allocator, fileSize) catch @panic("Failed to read file");
+        var file_reader = file.reader(io, &buffer);
+        const contents = file_reader.interface.allocRemaining(allocator, .unlimited) catch @panic("Failed to read file");
         defer allocator.free(contents);
 
         createTabWithContents(main_window, std.fs.path.basename(fname), contents);
@@ -358,72 +342,72 @@ pub fn NewAppWindow() !*AppWindow {
 
     const mnu = qmenubar.New2();
 
-    fileMenu = qmenubar.AddMenu2(mnu, "&File");
+    file_menu = qmenubar.AddMenu2(mnu, "&File");
 
-    newtab = qmenubar.AddAction2(fileMenu, "&New Tab");
-    const newTabKeySequence = qkeysequence.New2("Ctrl+N");
-    defer qkeysequence.Delete(newTabKeySequence);
-    qaction.SetShortcut(newtab, newTabKeySequence);
-    const newIcon = qicon.FromTheme("document-new");
-    defer qicon.Delete(newIcon);
-    qaction.SetIcon(newtab, newIcon);
+    newtab = qmenubar.AddAction2(file_menu, "&New Tab");
+    const new_tab_key_sequence = qkeysequence.New2("Ctrl+N");
+    defer qkeysequence.Delete(new_tab_key_sequence);
+    qaction.SetShortcut(newtab, new_tab_key_sequence);
+    const new_icon = qicon.FromTheme("document-new");
+    defer qicon.Delete(new_icon);
+    qaction.SetIcon(newtab, new_icon);
     qaction.OnTriggered(newtab, AppWindow.handleNewTab);
 
-    open = qmenubar.AddAction2(fileMenu, "&Open...");
-    const openKeySequence = qkeysequence.New2("Ctrl+O");
-    defer qkeysequence.Delete(openKeySequence);
-    qaction.SetShortcut(open, openKeySequence);
-    const openIcon = qicon.FromTheme("document-open");
-    defer qicon.Delete(openIcon);
-    qaction.SetIcon(open, openIcon);
+    open = qmenubar.AddAction2(file_menu, "&Open...");
+    const open_key_sequence = qkeysequence.New2("Ctrl+O");
+    defer qkeysequence.Delete(open_key_sequence);
+    qaction.SetShortcut(open, open_key_sequence);
+    const open_icon = qicon.FromTheme("document-open");
+    defer qicon.Delete(open_icon);
+    qaction.SetIcon(open, open_icon);
     qaction.OnTriggered(open, AppWindow.handleFileOpen);
 
-    _ = qmenubar.AddSeparator(fileMenu);
+    _ = qmenubar.AddSeparator(file_menu);
 
-    exit = qmenubar.AddAction2(fileMenu, "&Exit");
-    const exitKeySequence = qkeysequence.New2("Ctrl+Q");
-    defer qkeysequence.Delete(exitKeySequence);
-    qaction.SetShortcut(exit, exitKeySequence);
-    const exitIcon = qicon.FromTheme("application-exit");
-    defer qicon.Delete(exitIcon);
-    qaction.SetIcon(exit, exitIcon);
+    exit = qmenubar.AddAction2(file_menu, "&Exit");
+    const exit_key_sequence = qkeysequence.New2("Ctrl+Q");
+    defer qkeysequence.Delete(exit_key_sequence);
+    qaction.SetShortcut(exit, exit_key_sequence);
+    const exit_icon = qicon.FromTheme("application-exit");
+    defer qicon.Delete(exit_icon);
+    qaction.SetIcon(exit, exit_icon);
     qaction.OnTriggered(exit, AppWindow.handleExit);
 
-    optionsMenu = qmenubar.AddMenu2(mnu, "&Options");
+    options_menu = qmenubar.AddMenu2(mnu, "&Options");
 
-    languageMenu = qmenubar.AddMenu2(optionsMenu, "&Language");
+    language_menu = qmenubar.AddMenu2(options_menu, "&Language");
     const languageIcon = qicon.FromTheme("preferences-desktop-locale");
     defer qicon.Delete(languageIcon);
-    qmenu.SetIcon(languageMenu, languageIcon);
-    english = qmenubar.AddAction2(languageMenu, "&English");
+    qmenu.SetIcon(language_menu, languageIcon);
+    english = qmenubar.AddAction2(language_menu, "&English");
     qaction.SetObjectName(english, "en");
     qaction.OnTriggered(english, onTriggered);
-    french = qmenubar.AddAction2(languageMenu, "&French");
+    french = qmenubar.AddAction2(language_menu, "&French");
     qaction.SetObjectName(french, "fr");
     qaction.OnTriggered(french, onTriggered);
-    spanish = qmenubar.AddAction2(languageMenu, "&Spanish");
+    spanish = qmenubar.AddAction2(language_menu, "&Spanish");
     qaction.SetObjectName(spanish, "es");
     qaction.OnTriggered(spanish, onTriggered);
 
-    _ = qmenubar.AddMenu(optionsMenu, languageMenu);
+    _ = qmenubar.AddMenu(options_menu, language_menu);
 
-    helpMenu = qmenubar.AddMenu2(mnu, "&Help");
-    about = qmenubar.AddAction2(helpMenu, "&About Qt");
-    const aboutIcon = qicon.FromTheme("help-about");
-    defer qicon.Delete(aboutIcon);
-    qaction.SetIcon(about, aboutIcon);
-    const aboutShortcutSequence = qkeysequence.New2("F1");
-    defer qkeysequence.Delete(aboutShortcutSequence);
-    qaction.SetShortcut(about, aboutShortcutSequence);
+    help_menu = qmenubar.AddMenu2(mnu, "&Help");
+    about = qmenubar.AddAction2(help_menu, "&About Qt");
+    const about_icon = qicon.FromTheme("help-about");
+    defer qicon.Delete(about_icon);
+    qaction.SetIcon(about, about_icon);
+    const about_shortcut_sequence = qkeysequence.New2("F1");
+    defer qkeysequence.Delete(about_shortcut_sequence);
+    qaction.SetShortcut(about, about_shortcut_sequence);
     qaction.OnTriggered(about, AppWindow.handleAbout);
 
     qmainwindow.SetMenuBar(ret.w, mnu);
 
-    const closeKeyParam = "Ctrl+W";
-    const closeKeySequence = qkeysequence.New2(closeKeyParam);
-    defer qkeysequence.Delete(closeKeySequence);
-    const close = qmainwindow.AddAction4(ret.w, closeKeyParam, closeKeySequence);
-    qaction.SetShortcut(close, closeKeySequence);
+    const close_key_param = "Ctrl+W";
+    const close_key_sequence = qkeysequence.New2(close_key_param);
+    defer qkeysequence.Delete(close_key_sequence);
+    const close = qmainwindow.AddAction4(ret.w, close_key_param, close_key_sequence);
+    qaction.SetShortcut(close, close_key_sequence);
     qaction.OnTriggered(close, AppWindow.handleCloseCurrentTab);
 
     ret.tabs = qtabwidget.New(ret.w);
@@ -432,8 +416,19 @@ pub fn NewAppWindow() !*AppWindow {
     qtabwidget.OnTabCloseRequested(ret.tabs, AppWindow.handleTabClose);
     qmainwindow.SetCentralWidget(ret.w, ret.tabs);
 
-    const sampleContent = @embedFile("README.md");
-    AppWindow.createTabWithContents(ret, "README.md", sampleContent);
+    if (builtin.mode == .Debug) {
+        const label = qlabel.New3("## NOTE: This is a debug build.\n");
+        qlabel.SetAlignment(label, qnamespace_enums.AlignmentFlag.AlignCenter);
+        qlabel.SetTextFormat(label, qnamespace_enums.TextFormat.MarkdownText);
+        qlabel.SetStyleSheet(label, "background-color: rgb(240, 228, 66); color: rgb(0, 0, 0);");
+
+        const status_bar = qstatusbar.New2();
+        qstatusbar.SetStyleSheet(status_bar, "background-color: rgb(240, 228, 66);");
+        qstatusbar.AddPermanentWidget2(status_bar, label, 1);
+        qmainwindow.SetStatusBar(ret.w, status_bar);
+    }
+
+    AppWindow.createTabWithContents(ret, "README.md", @embedFile("README.md"));
 
     try app_window_tab_map.put(allocator, ret.tabs, ret);
     main_window = ret;
@@ -441,28 +436,26 @@ pub fn NewAppWindow() !*AppWindow {
     return ret;
 }
 
-pub fn main() !void {
-    const argc = std.os.argv.len;
-    const argv = std.os.argv.ptr;
-    const qapp = qapplication.New(argc, argv);
+pub fn main(init: std.process.Init) !void {
+    const argv = try qt6.init(init.gpa, init.minimal.args);
+    defer qt6.deinit(init.gpa, argv);
+    var argc: i32 = @intCast(argv.len);
+    const qapp = qapplication.New(&argc, argv, init.arena.allocator());
     defer qapplication.Delete(qapp);
 
-    defer _ = gpa.deinit();
-
-    var buffer: [64]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&buffer);
+    allocator = init.gpa;
+    io = init.io;
 
     var ok = resources.init();
-    if (!ok) {
-        try stdout_writer.interface.writeAll("Resource initialization failed!\n");
-        try stdout_writer.interface.flush();
-    }
+    if (!ok)
+        try std.Io.File.stdout().writeStreamingAll(init.io, "Resource initialization failed!\n");
     defer {
         ok = resources.deinit();
-        if (!ok) {
-            stdout_writer.interface.writeAll("Resource deinitialization failed!\n") catch @panic("Failed to stdout deinit\n");
-            stdout_writer.interface.flush() catch @panic("Failed to flush stdout writer");
-        }
+        if (!ok)
+            std.Io.File.stdout().writeStreamingAll(
+                init.io,
+                "Resource deinitialization failed!\n",
+            ) catch @panic("Failed to stdout deinit\n");
     }
 
     app_tab_map = .empty;

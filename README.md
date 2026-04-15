@@ -4,7 +4,7 @@
 <img alt="libqt6zig-demo" src="assets/libqt6zig-demo.png" height="128px;" />
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue)](https://github.com/rcalixte/libqt6zig-demo/blob/master/LICENSE)
-[![Static Badge](https://img.shields.io/badge/v0.15%20(stable)-fdc009?logo=zig&logoColor=f7a41d&label=Zig)](https://ziglang.org/download/)
+[![Static Badge](https://img.shields.io/badge/v0.16%20(stable)-fdc009?logo=zig&logoColor=f7a41d&label=Zig)](https://ziglang.org/download/)
 
 [![Builds](https://github.com/rcalixte/libqt6zig-demo/actions/workflows/builds.yml/badge.svg?branch=master)](https://github.com/rcalixte/libqt6zig-demo/actions/workflows/builds.yml)
 </div>
@@ -197,7 +197,7 @@ The first compilation should take less than a minute, far less on more recent or
 
 ### Q2. What build modes are supported by the demo application?
 
-Currently, only `ReleaseFast`, `ReleaseSafe`, and `ReleaseSmall` are supported. The `Debug` build mode is not supported. This may change in the future. The default build mode is `ReleaseFast`. To change the build mode:
+Currently, `Debug`, `ReleaseFast`, `ReleaseSafe`, and `ReleaseSmall` are supported. The default build mode is `Debug`. To change the build mode:
 
 ```bash
 zig build -Doptimize=ReleaseSmall

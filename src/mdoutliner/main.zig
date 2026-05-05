@@ -194,10 +194,8 @@ pub const AppTab = struct {
             defer line_number_qvariant.Delete();
 
             const text_area_document = apptab.text_area.Document();
-            if (text_area_document.ptr == null) return;
-
             const target_block = text_area_document.FindBlockByLineNumber(line_number);
-            if (target_block.ptr == null) return;
+            defer target_block.Delete();
 
             const cursor = QTextCursor.New4(target_block);
             defer cursor.Delete();
@@ -220,8 +218,8 @@ pub const AppTab = struct {
     }
 };
 
-pub fn NewAppTab() !*AppTab {
-    var ret = try allocator.create(AppTab);
+pub fn NewAppTab(alloc: std.mem.Allocator) !*AppTab {
+    var ret = try alloc.create(AppTab);
 
     ret.tab = QWidget.New2();
 
@@ -234,8 +232,8 @@ pub fn NewAppTab() !*AppTab {
     ret.outline.OnCurrentItemChanged(AppTab.handleJumpToBookmark);
 
     ret.text_area = QTextEdit.New(ret.tab);
-    try app_tab_map.put(allocator, .{ .ptr = @ptrCast(ret.text_area.ptr) }, ret);
-    try app_tab_map.put(allocator, .{ .ptr = @ptrCast(ret.outline.ptr) }, ret);
+    try app_tab_map.put(alloc, .{ .ptr = @ptrCast(ret.text_area.ptr) }, ret);
+    try app_tab_map.put(alloc, .{ .ptr = @ptrCast(ret.outline.ptr) }, ret);
 
     ret.text_area.OnTextChanged(AppTab.handleTextChanged);
     panes.AddWidget(ret.text_area);
@@ -250,8 +248,8 @@ pub const AppWindow = struct {
     w: QMainWindow,
     tabs: QTabWidget,
 
-    pub fn createTabWithContents(self: *AppWindow, tab_title: []const u8, tab_content: []const u8) void {
-        const tab = NewAppTab() catch @panic("Failed to create tab");
+    pub fn createTabWithContents(self: *AppWindow, alloc: std.mem.Allocator, tab_title: []const u8, tab_content: []const u8) void {
+        const tab = NewAppTab(alloc) catch @panic("Failed to create tab");
         // the new tab is cleaned up during handleTabClose
 
         tab.text_area.SetText(tab_content);
@@ -261,30 +259,32 @@ pub const AppWindow = struct {
 
         const tab_idx = self.tabs.AddTab2(tab.tab, icon, tab_title);
         self.tabs.SetCurrentIndex(tab_idx);
+
+        app_tab_map.put(alloc, QWidget{ .ptr = @ptrCast(self.tabs.ptr) }, tab) catch @panic("Failed to put tab in map");
     }
 
     pub fn handleTabClose(tab: QTabWidget, index: i32) callconv(.c) void {
         if (app_window_tab_map.get(tab)) |appwindow| {
             const widget = appwindow.tabs.Widget(index);
-            if (widget.ptr != null) {
-                var tab_to_free: ?*AppTab = null;
+            if (widget.ptr == null) return;
 
-                var it = app_tab_map.iterator();
-                while (it.next()) |entry| {
-                    const apptab = entry.value_ptr.*;
-                    if (apptab.tab.ptr == widget.ptr) {
-                        tab_to_free = apptab;
-                        _ = app_tab_map.fetchRemove(.{ .ptr = @ptrCast(apptab.text_area.ptr) });
-                        _ = app_tab_map.fetchRemove(.{ .ptr = @ptrCast(apptab.outline.ptr) });
-                        break;
-                    }
-                }
-                appwindow.tabs.RemoveTab(index);
+            var tab_to_free: ?*AppTab = null;
 
-                if (tab_to_free) |apptab| {
-                    apptab.deinit();
-                    allocator.destroy(apptab);
+            var it = app_tab_map.iterator();
+            while (it.next()) |entry| {
+                const apptab = entry.value_ptr.*;
+                if (apptab.tab.ptr == widget.ptr) {
+                    tab_to_free = apptab;
+                    _ = app_tab_map.fetchRemove(.{ .ptr = @ptrCast(apptab.text_area.ptr) });
+                    _ = app_tab_map.fetchRemove(.{ .ptr = @ptrCast(apptab.outline.ptr) });
+                    break;
                 }
+            }
+            appwindow.tabs.RemoveTab(index);
+
+            if (tab_to_free) |apptab| {
+                apptab.deinit();
+                allocator.destroy(apptab);
             }
         }
     }
@@ -298,7 +298,7 @@ pub const AppWindow = struct {
     }
 
     pub fn handleNewTab(_: QAction) callconv(.c) void {
-        main_window.createTabWithContents("New Document", "");
+        main_window.createTabWithContents(allocator, "New Document", "");
     }
 
     pub fn handleFileOpen(_: QAction) callconv(.c) void {
@@ -321,7 +321,7 @@ pub const AppWindow = struct {
         const contents = file_reader.interface.allocRemaining(allocator, .unlimited) catch @panic("Failed to read file");
         defer allocator.free(contents);
 
-        main_window.createTabWithContents(std.Io.Dir.path.basename(fname), contents);
+        main_window.createTabWithContents(allocator, std.Io.Dir.path.basename(fname), contents);
     }
 
     pub fn handleExit(_: QAction) callconv(.c) void {
@@ -333,8 +333,8 @@ pub const AppWindow = struct {
     }
 };
 
-pub fn NewAppWindow() !*AppWindow {
-    var ret = try allocator.create(AppWindow);
+pub fn NewAppWindow(alloc: std.mem.Allocator) !*AppWindow {
+    var ret = try alloc.create(AppWindow);
 
     ret.w = QMainWindow.New2();
     ret.w.SetWindowTitle("Markdown Outliner");
@@ -391,7 +391,8 @@ pub fn NewAppWindow() !*AppWindow {
 
     _ = options_menu.AddMenu(language_menu);
 
-    about = mnu.AddMenu2("&Help").AddAction2("&About Qt");
+    help_menu = mnu.AddMenu2("&Help");
+    about = help_menu.AddAction2("&About Qt");
     const about_icon = QIcon.FromTheme("help-about");
     defer about_icon.Delete();
     about.SetIcon(about_icon);
@@ -427,9 +428,9 @@ pub fn NewAppWindow() !*AppWindow {
         ret.w.SetStatusBar(status_bar);
     }
 
-    ret.createTabWithContents("README.md", @embedFile("README.md"));
+    ret.createTabWithContents(alloc, "README.md", @embedFile("README.md"));
 
-    try app_window_tab_map.put(allocator, ret.tabs, ret);
+    try app_window_tab_map.put(alloc, ret.tabs, ret);
     main_window = ret;
 
     return ret;
@@ -463,23 +464,23 @@ pub fn main(init: std.process.Init) !void {
 
     defer {
         var processed_tabs: std.AutoHashMapUnmanaged(*AppTab, void) = .empty;
-        defer processed_tabs.deinit(allocator);
+        defer processed_tabs.deinit(init.gpa);
 
         var it = app_tab_map.iterator();
         while (it.next()) |entry| {
             const apptab = entry.value_ptr.*;
             if (!processed_tabs.contains(apptab)) {
-                _ = processed_tabs.put(allocator, apptab, {}) catch @panic("Failed to put AppTab into processed_tabs");
+                _ = processed_tabs.put(init.gpa, apptab, {}) catch @panic("Failed to put AppTab into processed_tabs");
 
-                allocator.destroy(apptab);
+                init.gpa.destroy(apptab);
             }
         }
-        app_tab_map.deinit(allocator);
-        app_window_tab_map.deinit(allocator);
+        app_tab_map.deinit(init.gpa);
+        app_window_tab_map.deinit(init.gpa);
     }
 
-    const app = try NewAppWindow();
-    defer allocator.destroy(app);
+    const app = try NewAppWindow(init.gpa);
+    defer init.gpa.destroy(app);
 
     app.w.Show();
 

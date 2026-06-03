@@ -1,5 +1,5 @@
 const std = @import("std");
-const host_os = @import("builtin").os.tag;
+const host_os = @import("builtin").target.os.tag;
 
 var qt_dir: []const u8 = "";
 

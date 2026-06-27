@@ -179,9 +179,10 @@ pub const AppTab = struct {
         }
     }
 
-    pub fn deinit(self: *AppTab) void {
+    pub fn deinit(self: *AppTab, alloc: std.mem.Allocator) void {
         self.tab.Delete();
         self.tab.ptr = null;
+        alloc.destroy(self);
     }
 
     pub fn handleJumpToBookmark(self: QListWidget, _: QListWidgetItem, _: QListWidgetItem) callconv(.c) void {
@@ -220,6 +221,7 @@ pub const AppTab = struct {
 
 pub fn NewAppTab(alloc: std.mem.Allocator) !*AppTab {
     var ret = try alloc.create(AppTab);
+    errdefer alloc.destroy(ret);
 
     ret.tab = QWidget.New2();
 
@@ -259,8 +261,6 @@ pub const AppWindow = struct {
 
         const tab_idx = self.tabs.AddTab2(tab.tab, icon, tab_title);
         self.tabs.SetCurrentIndex(tab_idx);
-
-        app_tab_map.put(alloc, QWidget{ .ptr = @ptrCast(self.tabs.ptr) }, tab) catch @panic("Failed to put tab in map");
     }
 
     pub fn handleTabClose(tab: QTabWidget, index: i32) callconv(.c) void {
@@ -268,23 +268,17 @@ pub const AppWindow = struct {
             const widget = appwindow.tabs.Widget(index);
             if (widget.ptr == null) return;
 
-            var tab_to_free: ?*AppTab = null;
+            appwindow.tabs.RemoveTab(index);
 
             var it = app_tab_map.iterator();
             while (it.next()) |entry| {
                 const apptab = entry.value_ptr.*;
                 if (apptab.tab.ptr == widget.ptr) {
-                    tab_to_free = apptab;
                     _ = app_tab_map.fetchRemove(.{ .ptr = @ptrCast(apptab.text_area.ptr) });
                     _ = app_tab_map.fetchRemove(.{ .ptr = @ptrCast(apptab.outline.ptr) });
+                    apptab.deinit(allocator);
                     break;
                 }
-            }
-            appwindow.tabs.RemoveTab(index);
-
-            if (tab_to_free) |apptab| {
-                apptab.deinit();
-                allocator.destroy(apptab);
             }
         }
     }
@@ -335,6 +329,7 @@ pub const AppWindow = struct {
 
 pub fn NewAppWindow(alloc: std.mem.Allocator) !*AppWindow {
     var ret = try alloc.create(AppWindow);
+    errdefer alloc.destroy(ret);
 
     ret.w = QMainWindow.New2();
     ret.w.SetWindowTitle("Markdown Outliner");
@@ -463,17 +458,11 @@ pub fn main(init: std.process.Init) !void {
     app_window_tab_map = .empty;
 
     defer {
-        var processed_tabs: std.AutoHashMapUnmanaged(*AppTab, void) = .empty;
-        defer processed_tabs.deinit(init.gpa);
-
         var it = app_tab_map.iterator();
         while (it.next()) |entry| {
             const apptab = entry.value_ptr.*;
-            if (!processed_tabs.contains(apptab)) {
-                _ = processed_tabs.put(init.gpa, apptab, {}) catch @panic("Failed to put AppTab into processed_tabs");
-
-                init.gpa.destroy(apptab);
-            }
+            if (apptab.tab.ptr != null)
+                apptab.deinit(init.gpa);
         }
         app_tab_map.deinit(init.gpa);
         app_window_tab_map.deinit(init.gpa);

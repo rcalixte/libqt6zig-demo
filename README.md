@@ -104,8 +104,10 @@ To install the Qt 6 dependency using [Homebrew](https://brew.sh/):
 brew install qt6
 ```
 
+If using this installation method, no further steps are required.
+
 > [!IMPORTANT]
-> In recent versions of Qt 6, the symlinks are not correctly created at the time of installation and must be created manually for each framework. For the demo application, the following commands can be used to create the symlinks:
+> In recent versions of Qt 6, auxiliary symlinks are not created at the time of installation and must be created manually for each framework if `pkg-config` is not available and configured correctly. This can be done with commands similar to the following commands but for the appropriate framework:
 >
 > ```bash
 > ln -s /opt/homebrew/lib/QtCore.framework/Headers /opt/homebrew/include/QtCore
@@ -113,7 +115,7 @@ brew install qt6
 > ln -s /opt/homebrew/lib/QtWidgets.framework/Headers /opt/homebrew/include/QtWidgets
 > ```
 
-The official Qt installer is also supported but will require manually creating the symlinks as above and using the `extra-paths` option described below, using the root of the include directory as the path value.
+The official Qt installer is supported but will require manually creating the symlinks as above and using the `extra-paths` option described below, using the root of the include directory as the path value.
 
 > [!NOTE]
 > The `zig` package will need to be downloaded and installed separately if the latest stable version is not available via Homebrew.

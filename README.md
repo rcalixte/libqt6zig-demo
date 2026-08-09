@@ -119,7 +119,7 @@ brew install qt6
 If using this installation method, no further steps are required.
 
 > [!IMPORTANT]
-> In recent versions of Qt 6, auxiliary symlinks are not created at the time of installation and must be created manually for each framework if `pkg-config` is not available and configured correctly. This can be done with commands similar to the following commands but for the appropriate framework:
+> In recent versions of Qt 6, auxiliary symlinks are not created at the time of installation and must be created manually for each framework if `pkgconf` is not available and configured correctly. This can be done with commands similar to the following commands but for the appropriate framework:
 >
 > ```bash
 > ln -s /opt/homebrew/lib/QtCore.framework/Headers /opt/homebrew/include/QtCore

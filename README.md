@@ -155,7 +155,7 @@ To build and run the demo application:
 zig build run
 ```
 
-In the event that another system library path is needed e.g. a different Qt installation path, the `extra-paths` option supports this use case:
+In the event that another system library path is needed, e.g. a different Qt installation path, the `extra-paths` option supports this use case:
 
 ```bash
 zig build -Dextra-paths="C:/Qt/6/llvm-mingw_64"

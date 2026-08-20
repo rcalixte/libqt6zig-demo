@@ -444,7 +444,7 @@ pub fn main(init: std.process.Init) !void {
 
     var ok = resources.init();
     if (!ok)
-        try std.Io.File.stdout().writeStreamingAll(init.io, "Resource initialization failed!\n");
+        std.log.err("Resource initialization failed!", .{});
 
     try app_window.init(init.gpa);
     defer {
@@ -453,10 +453,7 @@ pub fn main(init: std.process.Init) !void {
 
         ok = resources.deinit();
         if (!ok)
-            std.Io.File.stdout().writeStreamingAll(
-                init.io,
-                "Resource deinitialization failed!\n",
-            ) catch @panic("Failed to stdout deinit\n");
+            std.log.err("Resource deinitialization failed!", .{});
 
         app_window.deinit();
         app_tab_map.deinit(init.gpa);

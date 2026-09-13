@@ -9,6 +9,7 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
     const extra_paths = b.option([]const []const u8, "extra-paths", "Extra library header and include search paths") orelse &.{};
+    const maintainer = b.option(bool, "maintainer", "Enable maintainer mode") orelse false;
 
     const is_windows = target.result.os.tag == .windows or host_os == .windows;
 
@@ -24,6 +25,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
         .@"extra-paths" = extra_paths,
+        .maintainer = maintainer,
     });
 
     const exe = b.addExecutable(.{

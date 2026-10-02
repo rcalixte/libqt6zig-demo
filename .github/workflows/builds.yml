@@ -54,15 +54,16 @@ jobs:
             os: *windows
             python: "false"
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     name: "${{ matrix.name }} Qt ${{ matrix.qt }}"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
-          version: 0.16.0
+          version: 0.17.0
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4

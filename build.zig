@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) !void {
     for (qt_libraries) |lib|
         exe.root_module.linkLibrary(qt6zig.artifact(lib));
 
-    if (optimize == .Debug)
+    if (optimize == .debug)
         for (debug_libraries) |lib|
             exe.root_module.linkLibrary(qt6zig.artifact(lib));
 

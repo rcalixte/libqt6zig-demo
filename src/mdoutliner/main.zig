@@ -182,7 +182,7 @@ pub const AppTab = struct {
             if (!in_code_block)
                 if (std.mem.startsWith(u8, line, "#")) {
                     const bookmark = QListWidgetItem.new7(line, self.outline);
-                    const tooltip = std.fmt.bufPrint(&buf, "Line {d}", .{line_number + 1}) catch continue;
+                    const tooltip = std.mem.print(&buf, "Line {d}", .{line_number + 1}) catch continue;
 
                     bookmark.setToolTip(tooltip);
                     const line_num = QVariant.new4(line_number);
@@ -193,7 +193,7 @@ pub const AppTab = struct {
                     !std.mem.eql(u8, prev_line, ""))
                 {
                     const bookmark = QListWidgetItem.new7(prev_line, self.outline);
-                    const tooltip = std.fmt.bufPrint(&buf, "Line {d}", .{line_number}) catch continue;
+                    const tooltip = std.mem.print(&buf, "Line {d}", .{line_number}) catch continue;
 
                     bookmark.setToolTip(tooltip);
                     const line_num = QVariant.new4(line_number - 1);
@@ -327,7 +327,7 @@ pub const AppWindow = struct {
         self.tabs.onTabCloseRequested(AppWindow.handleTabClose);
         self.w.setCentralWidget(self.tabs);
 
-        if (builtin.mode == .Debug) {
+        if (builtin.mode == .debug) {
             const label = QLabel.new3("## NOTE: This is a debug build.\n");
             label.setAlignment(qnamespace_enums.AlignmentFlag.AlignCenter);
             label.setTextFormat(qnamespace_enums.TextFormat.MarkdownText);

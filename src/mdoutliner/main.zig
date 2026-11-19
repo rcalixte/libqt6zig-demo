@@ -443,8 +443,7 @@ pub fn main(init: std.process.Init) !void {
     allocator = init.gpa;
     io = init.io;
 
-    var ok = resources.init();
-    if (!ok)
+    if (!resources.init())
         std.log.err("Resource initialization failed!", .{});
 
     try app_window.init(init.gpa);
@@ -452,8 +451,7 @@ pub fn main(init: std.process.Init) !void {
         while (app_window.tabs.count() > 0)
             AppWindow.handleTabClose(app_window.tabs, 0);
 
-        ok = resources.deinit();
-        if (!ok)
+        if (!resources.deinit())
             std.log.err("Resource deinitialization failed!", .{});
 
         app_window.deinit();

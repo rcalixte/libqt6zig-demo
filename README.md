@@ -13,7 +13,7 @@
 
 Demo application using the [MIT-licensed Qt 6 bindings for Zig](https://github.com/rcalixte/libqt6zig)
 
-This demo application can be thought of as a simpler instructive template for using the main library than the [examples](https://github.com/rcalixte/libqt6zig-examples). Please try out the demo application and start a [discussion](https://github.com/rcalixte/libqt6zig/discussions) if you have any questions or issues relevant to this demo application.
+This demo application can be thought of as a simpler instructive template for using the main library than the [Widget-based examples](https://github.com/rcalixte/libqt6zig-examples) or the [QML-based examples](https://github.com/rcalixte/libqt6zig-examples-qml). Please try out the demo application and start a [discussion](https://github.com/rcalixte/libqt6zig/discussions) if you have any questions or issues relevant to this demo application.
 
 ---
 

@@ -81,7 +81,7 @@ pub fn build(b: *std.Build) !void {
 
 const win_root = "C:/Qt/6.8.3/llvm-mingw_64";
 
-const qt_libraries = [_][]const u8{
+const qt_libraries: []const []const u8 = &.{
     "qaction",
     "qactiongroup",
     "qapplication",
@@ -108,7 +108,7 @@ const qt_libraries = [_][]const u8{
     "qwidget",
 };
 
-const debug_libraries = [_][]const u8{
+const debug_libraries: []const []const u8 = &.{
     "qlabel",
     "qstatusbar",
 };
